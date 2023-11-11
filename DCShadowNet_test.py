@@ -107,7 +107,7 @@ class DCShadowNet(object) :
 
     def process_frame(self, frame):
         original_height, original_width = frame.shape[:2]
-        print(f'shape[:2]:{original_width}x{original_height}')
+        #print(f'shape[:2]:{original_width}x{original_height}')
         original_aspect_ratio = original_width / original_height
         target_aspect_ratio = self.img_w / self.img_h
 
@@ -169,7 +169,7 @@ class DCShadowNet(object) :
         fps = video.get(cv2.CAP_PROP_FPS)
         frame_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        print(f'frames {frame_width}x{frame_height}')
+        #print(f'frames {frame_width}x{frame_height}')
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out_video = cv2.VideoWriter(os.path.join(path_fakeB, dataset_file), fourcc, fps, (frame_width, frame_height))
 
@@ -184,15 +184,14 @@ class DCShadowNet(object) :
 
                 # Преобразование обработанного кадра в формат, подходящий для модели
                 img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
-                real_A = self.test_transform(img).unsqueeze(0).to(self.device)
+                cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), img)
                 
-                fake_A2B, _, _ = self.genA2B(real_A)
-
-                # Преобразование результата обратно в формат изображения OpenCV
-                B_fake = cv2.cvtColor(np.array(fake_A2B[0].cpu().detach()), cv2.COLOR_RGB2BGR)
-
-                cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
-                out_video.write((B_fake * 255).astype(np.uint8))
+                if False:
+                    real_A = self.test_transform(img).unsqueeze(0).to(self.device)                
+                    fake_A2B, _, _ = self.genA2B(real_A)
+                    B_fake = cv2.cvtColor(np.array(fake_A2B[0].cpu().detach()), cv2.COLOR_RGB2BGR)
+                    cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
+                    out_video.write((B_fake * 255).astype(np.uint8))
 
         video.release()
         out_video.release()
