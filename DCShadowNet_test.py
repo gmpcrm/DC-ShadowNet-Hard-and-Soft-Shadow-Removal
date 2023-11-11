@@ -5,6 +5,8 @@ from torch.utils.data import DataLoader
 from networks import *
 from utils_loss import *
 from glob import glob
+import cv2
+from tqdm import tqdm
 from PIL import Image
 
 class DCShadowNet(object) :
@@ -114,49 +116,108 @@ class DCShadowNet(object) :
 
                 self.genA2B.eval(), self.genB2A.eval()
                 
-                # path_realA=os.path.join(self.result_dir, self.dataset, str(iter)+'/inputA')
-                # if not os.path.exists(path_realA):
-                #     os.makedirs(path_realA)
-                
                 path_fakeB=os.path.join(self.result_dir, self.dataset, str(iter)+'/outputB')
                 if not os.path.exists(path_fakeB):
                     os.makedirs(path_fakeB)
 
-                #path_realAfakeB=os.path.join(self.result_dir, self.dataset, str(iter)+'/inputA_outputB')
-                #if not os.path.exists(path_realAfakeB):
-                #    os.makedirs(path_realAfakeB)
+                self.test_list = [os.path.splitext(f)[0] for f in os.listdir(os.path.join(self.datasetpath, 'testA')) if f.endswith(self.im_suf_A)]
+                for n, img_name in enumerate(self.test_list):
+                    print('predicting: %d / %d' % (n + 1, len(self.test_list)))
+                    
+                    img = Image.open(os.path.join('dataset', self.datasetpath, 'testA', img_name + self.im_suf_A)).convert('RGB')
+                    
+                    real_A = (self.test_transform(img).unsqueeze(0)).to(self.device)
+                    
+                    fake_A2B, _, _ = self.genA2B(real_A)
+                    
+                    A_real = RGB2BGR(tensor2numpy(denorm(real_A[0])))
+                    B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
+                    cv2.imwrite(os.path.join(path_fakeB,  '%s.png' % img_name), B_fake * 255.0)
 
-                if self.use_original_name:
-                    self.test_list = [os.path.splitext(f)[0] for f in os.listdir(os.path.join(self.datasetpath, 'testA')) if f.endswith(self.im_suf_A)]
-                    for n, img_name in enumerate(self.test_list):
-                        print('predicting: %d / %d' % (n + 1, len(self.test_list)))
-                        
-                        img = Image.open(os.path.join('dataset', self.datasetpath, 'testA', img_name + self.im_suf_A)).convert('RGB')
-                        
-                        real_A = (self.test_transform(img).unsqueeze(0)).to(self.device)
-                        
-                        fake_A2B, _, _ = self.genA2B(real_A)
-                        
-                        A_real = RGB2BGR(tensor2numpy(denorm(real_A[0])))
-                        B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
-                        #A2B = np.concatenate((A_real, B_fake), 1)
+    def process_frame(self, frame, target_width, target_height, crop):
+        original_height, original_width = frame.shape[:2]
+        original_aspect_ratio = original_width / original_height
+        target_aspect_ratio = target_width / target_height
 
-                        #cv2.imwrite(os.path.join(path_realA,  '%s.png' % img_name), A_real * 255.0) 
-                        cv2.imwrite(os.path.join(path_fakeB,  '%s.png' % img_name), B_fake * 255.0)
-                        #cv2.imwrite(os.path.join(path_realAfakeB,'%s.png' % img_name), A2B * 255.0)
+        # Переменные для обрезки
+        x_start = y_start = 0
+        crop_width = original_width
+        crop_height = original_height
 
-                else:                    
-                    for n, (real_A, _) in enumerate(self.testA_loader):
-                        print('predicting: %d / %d' % (n + 1, len(self.testA_loader)))
-                        
-                        real_A = real_A.to(self.device)
+        # Переменные для добавления бордюров
+        top_border = bottom_border = left_border = right_border = 0
+        new_width = original_width
+        new_height = original_height
 
-                        fake_A2B, _, _ = self.genA2B(real_A)
+        if crop:
+            if original_aspect_ratio > target_aspect_ratio:
+                # Обрезка по горизонтали
+                new_width = int(original_height * target_aspect_ratio)
+                x_start = (original_width - new_width) // 2
+            else:
+                # Обрезка по вертикали
+                new_height = int(original_width / target_aspect_ratio)
+                y_start = (original_height - new_height) // 2
+        else:
+            if original_aspect_ratio > target_aspect_ratio:
+                # Сохранение ширины
+                new_height = int(target_width / original_aspect_ratio)
+                top_border = bottom_border = (target_height - new_height) // 2
+            else:
+                # Сохранение высоты
+                new_width = int(target_height * original_aspect_ratio)
+                left_border = right_border = (target_width - new_width) // 2
 
-                        A_real = RGB2BGR(tensor2numpy(denorm(real_A[0])))
-                        B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
-                        A2B = np.concatenate((A_real, B_fake), 1)
+        if crop:
+            cropped_frame = frame[y_start:y_start + new_height, x_start:x_start + new_width]
+            final_frame = cv2.resize(cropped_frame, (target_width, target_height))
+        else:
+            resized_frame = cv2.resize(frame, (new_width, new_height))
+            final_frame = cv2.copyMakeBorder(resized_frame, top_border, bottom_border, left_border, right_border, cv2.BORDER_CONSTANT, value=[255, 255, 255])
 
-                        #cv2.imwrite(os.path.join(path_realA,  '%d.png' % (n + 1)), A_real * 255.0) 
-                        cv2.imwrite(os.path.join(path_fakeB,  '%d.png' % (n + 1)), B_fake * 255.0)
-                        cv2.imwrite(os.path.join(path_realAfakeB,  '%d.png' % (n + 1)), A2B * 255.0) 
+        return final_frame
+    
+    def test(self, input_video_path, target_width, target_height, crop):
+        model_list = glob.glob(os.path.join(self.result_dir, self.dataset, 'model', '*.pt'))
+        if not len(model_list) == 0:
+            model_list.sort()
+            print('model_list', model_list)
+            iter = int(model_list[-1].split('_')[-1].split('.')[0])
+            
+            self.load(os.path.join(self.result_dir, self.dataset, 'model'), iter)
+            print(" [*] Load SUCCESS")
+
+            self.genA2B.eval(), self.genB2A.eval()
+
+            path_fakeB = os.path.join(self.result_dir, self.dataset, str(iter)+'/outputB')
+            if not os.path.exists(path_fakeB):
+                os.makedirs(path_fakeB)
+
+            video = cv2.VideoCapture(input_video_path)
+            if not video.isOpened():
+                print("Не удалось открыть видео.")
+                return
+
+            frame_number = 0
+            while True:
+                ret, frame = video.read()
+                if not ret:
+                    break
+
+                # Обработка кадра для подготовки к модели
+                processed_frame = process_frame(self, frame, target_width, target_height, crop)
+
+                # Преобразование обработанного кадра в формат, подходящий для модели
+                img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
+                real_A = self.test_transform(img).unsqueeze(0).to(self.device)
+                
+                fake_A2B, _, _ = self.genA2B(real_A)
+
+                # Преобразование результата обратно в формат изображения OpenCV
+                B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
+                
+                cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
+                frame_number += 1
+
+            video.release()
+
