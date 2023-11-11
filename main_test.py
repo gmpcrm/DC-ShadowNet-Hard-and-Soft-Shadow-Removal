@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument('--pecp_weight', type=int, default=1, help='Weight for shadow-robust feature')
     parser.add_argument('--smooth_weight', type=int, default=1, help='Weight for boundary smoothness')
     
+    parser.add_argument('--use_crop', type=str2bool, default=True, help='use crop mode instead bordering')
     parser.add_argument('--use_ch_loss', type=str2bool, default=True, help='use shadow-free chromaticity loss')
     parser.add_argument('--use_pecp_loss', type=str2bool, default=True, help='use shadow-robust feature loss')
     parser.add_argument('--use_smooth_loss', type=str2bool, default=True, help='use boundary smoothness loss')
@@ -81,7 +82,7 @@ def main():
     gan.build_model()
 
     if args.phase == 'test' :
-        gan.test()
+        gan.test2()
         print(" [*] Test finished!")
 
 if __name__ == '__main__':

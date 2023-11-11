@@ -34,6 +34,7 @@ class DCShadowNet(object) :
         self.identity_weight = args.identity_weight
         self.dom_weight = args.dom_weight
 
+        self.use_crop = args.use_crop
         self.use_ch_loss = args.use_ch_loss
         self.use_pecp_loss = args.use_pecp_loss
         self.use_smooth_loss = args.use_smooth_loss 
@@ -134,10 +135,10 @@ class DCShadowNet(object) :
                     B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
                     cv2.imwrite(os.path.join(path_fakeB,  '%s.png' % img_name), B_fake * 255.0)
 
-    def process_frame(self, frame, target_width, target_height, crop):
+    def process_frame(self, frame):
         original_height, original_width = frame.shape[:2]
         original_aspect_ratio = original_width / original_height
-        target_aspect_ratio = target_width / target_height
+        target_aspect_ratio = self.img_w / self.img_h
 
         # Переменные для обрезки
         x_start = y_start = 0
@@ -149,7 +150,7 @@ class DCShadowNet(object) :
         new_width = original_width
         new_height = original_height
 
-        if crop:
+        if self.use_crop:
             if original_aspect_ratio > target_aspect_ratio:
                 # Обрезка по горизонтали
                 new_width = int(original_height * target_aspect_ratio)
@@ -161,23 +162,23 @@ class DCShadowNet(object) :
         else:
             if original_aspect_ratio > target_aspect_ratio:
                 # Сохранение ширины
-                new_height = int(target_width / original_aspect_ratio)
-                top_border = bottom_border = (target_height - new_height) // 2
+                new_height = int(self.img_w / original_aspect_ratio)
+                top_border = bottom_border = (self.img_h - new_height) // 2
             else:
                 # Сохранение высоты
-                new_width = int(target_height * original_aspect_ratio)
-                left_border = right_border = (target_width - new_width) // 2
+                new_width = int(self.img_h * original_aspect_ratio)
+                left_border = right_border = (self.img_w - new_width) // 2
 
-        if crop:
+        if self.use_crop:
             cropped_frame = frame[y_start:y_start + new_height, x_start:x_start + new_width]
-            final_frame = cv2.resize(cropped_frame, (target_width, target_height))
+            final_frame = cv2.resize(cropped_frame, (self.img_w, self.img_h))
         else:
             resized_frame = cv2.resize(frame, (new_width, new_height))
             final_frame = cv2.copyMakeBorder(resized_frame, top_border, bottom_border, left_border, right_border, cv2.BORDER_CONSTANT, value=[255, 255, 255])
 
         return final_frame
     
-    def test(self, input_video_path, target_width, target_height, crop):
+    def test2(self):
         model_list = glob.glob(os.path.join(self.result_dir, self.dataset, 'model', '*.pt'))
         if not len(model_list) == 0:
             model_list.sort()
@@ -193,7 +194,7 @@ class DCShadowNet(object) :
             if not os.path.exists(path_fakeB):
                 os.makedirs(path_fakeB)
 
-            video = cv2.VideoCapture(input_video_path)
+            video = cv2.VideoCapture(self.datasetpath)
             if not video.isOpened():
                 print("Не удалось открыть видео.")
                 return
@@ -205,7 +206,7 @@ class DCShadowNet(object) :
                     break
 
                 # Обработка кадра для подготовки к модели
-                processed_frame = process_frame(self, frame, target_width, target_height, crop)
+                processed_frame = self.process_frame(self, frame)
 
                 # Преобразование обработанного кадра в формат, подходящий для модели
                 img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
