@@ -122,9 +122,9 @@ class DCShadowNet(object) :
                 if not os.path.exists(path_fakeB):
                     os.makedirs(path_fakeB)
 
-                path_realAfakeB=os.path.join(self.result_dir, self.dataset, str(iter)+'/inputA_outputB')
-                if not os.path.exists(path_realAfakeB):
-                    os.makedirs(path_realAfakeB)
+                #path_realAfakeB=os.path.join(self.result_dir, self.dataset, str(iter)+'/inputA_outputB')
+                #if not os.path.exists(path_realAfakeB):
+                #    os.makedirs(path_realAfakeB)
 
                 if self.use_original_name:
                     self.test_list = [os.path.splitext(f)[0] for f in os.listdir(os.path.join(self.datasetpath, 'testA')) if f.endswith(self.im_suf_A)]
@@ -139,11 +139,11 @@ class DCShadowNet(object) :
                         
                         A_real = RGB2BGR(tensor2numpy(denorm(real_A[0])))
                         B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
-                        A2B = np.concatenate((A_real, B_fake), 1)
+                        #A2B = np.concatenate((A_real, B_fake), 1)
 
                         #cv2.imwrite(os.path.join(path_realA,  '%s.png' % img_name), A_real * 255.0) 
                         cv2.imwrite(os.path.join(path_fakeB,  '%s.png' % img_name), B_fake * 255.0)
-                        cv2.imwrite(os.path.join(path_realAfakeB,'%s.png' % img_name), A2B * 255.0)
+                        #cv2.imwrite(os.path.join(path_realAfakeB,'%s.png' % img_name), A2B * 255.0)
 
                 else:                    
                     for n, (real_A, _) in enumerate(self.testA_loader):
