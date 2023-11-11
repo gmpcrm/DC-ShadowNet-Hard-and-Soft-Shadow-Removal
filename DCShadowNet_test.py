@@ -107,6 +107,7 @@ class DCShadowNet(object) :
 
     def process_frame(self, frame):
         original_height, original_width = frame.shape[:2]
+        print(f'{original_width},{original_height}')
         original_aspect_ratio = original_width / original_height
         target_aspect_ratio = self.img_w / self.img_h
 
