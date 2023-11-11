@@ -9,6 +9,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('--phase', type=str, default='test', help='[train / test]')
     parser.add_argument('--dataset', type=str, default='SRD', help='dataset_name')
+    parser.add_argument('--modelpath', type=str, default='/disk1/yeying/dataset/SRD', help='model_path')
     parser.add_argument('--datasetpath', type=str, default='/disk1/yeying/dataset/SRD', help='dataset_path')
     parser.add_argument('--iteration', type=int, default=1000000, help='The number of training iterations')
     parser.add_argument('--batch_size', type=int, default=1, help='The size of batch size')
@@ -82,7 +83,7 @@ def main():
     gan.build_model()
 
     if args.phase == 'test' :
-        gan.test2()
+        gan.test()
         print(" [*] Test finished!")
 
 if __name__ == '__main__':

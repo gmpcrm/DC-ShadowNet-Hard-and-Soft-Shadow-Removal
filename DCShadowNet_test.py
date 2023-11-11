@@ -13,6 +13,7 @@ class DCShadowNet(object) :
     def __init__(self, args):        
         self.model_name = 'DCShadowNet'
 
+        self.modelpath = args.modelpath
         self.result_dir = args.result_dir
         self.dataset = args.dataset
         self.datasetpath = args.datasetpath
@@ -93,44 +94,14 @@ class DCShadowNet(object) :
         self.disLA = Discriminator(input_nc=3, ndf=self.ch, n_layers=5).to(self.device)
         self.disLB = Discriminator(input_nc=3, ndf=self.ch, n_layers=5).to(self.device)
 
-    def load(self, dir, step):
-        params = torch.load(os.path.join(dir, self.dataset + '_params_%07d.pt' % step))
+    def load(self):
+        params = torch.load(self.modelpath)
         self.genA2B.load_state_dict(params['genA2B'])
         self.genB2A.load_state_dict(params['genB2A'])
         self.disGA.load_state_dict(params['disGA'])
         self.disGB.load_state_dict(params['disGB'])
         self.disLA.load_state_dict(params['disLA'])
         self.disLB.load_state_dict(params['disLB'])
-
-    def test(self):
-        model_list = glob(os.path.join(self.result_dir, self.dataset, 'model', '*.pt'))
-        if not len(model_list) == 0:
-            model_list.sort()
-            print('model_list',model_list)
-            iter = int(model_list[-1].split('_')[-1].split('.')[0])
-            for i in range(-1,0,1):
-                self.load(os.path.join(self.result_dir, self.dataset, 'model'), iter)
-                print(" [*] Load SUCCESS")
-
-                self.genA2B.eval(), self.genB2A.eval()
-                
-                path_fakeB=os.path.join(self.result_dir, self.dataset, str(iter)+'/outputB')
-                if not os.path.exists(path_fakeB):
-                    os.makedirs(path_fakeB)
-
-                self.test_list = [os.path.splitext(f)[0] for f in os.listdir(os.path.join(self.datasetpath, 'testA')) if f.endswith(self.im_suf_A)]
-                for n, img_name in enumerate(self.test_list):
-                    print('predicting: %d / %d' % (n + 1, len(self.test_list)))
-                    
-                    img = Image.open(os.path.join('dataset', self.datasetpath, 'testA', img_name + self.im_suf_A)).convert('RGB')
-                    
-                    real_A = (self.test_transform(img).unsqueeze(0)).to(self.device)
-                    
-                    fake_A2B, _, _ = self.genA2B(real_A)
-                    
-                    A_real = RGB2BGR(tensor2numpy(denorm(real_A[0])))
-                    B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
-                    cv2.imwrite(os.path.join(path_fakeB,  '%s.png' % img_name), B_fake * 255.0)
 
     def process_frame(self, frame):
         original_height, original_width = frame.shape[:2]
@@ -175,33 +146,32 @@ class DCShadowNet(object) :
 
         return final_frame
     
-    def test2(self):
-        model_list = glob.glob(os.path.join(self.result_dir, self.dataset, 'model', '*.pt'))
-        if not len(model_list) == 0:
-            model_list.sort()
-            print('model_list', model_list)
-            iter = int(model_list[-1].split('_')[-1].split('.')[0])
-            
-            self.load(os.path.join(self.result_dir, self.dataset, 'model'), iter)
-            print(" [*] Load SUCCESS")
+    def test(self):
+        self.load()
+        print(" [*] Load SUCCESS")
 
-            self.genA2B.eval(), self.genB2A.eval()
+        self.genA2B.eval()
+        self.genB2A.eval()
 
-            path_fakeB = os.path.join(self.result_dir, self.dataset, str(iter)+'/outputB')
-            if not os.path.exists(path_fakeB):
-                os.makedirs(path_fakeB)
+        path_fakeB = os.path.join(self.result_dir, 'output')
+        if not os.path.exists(path_fakeB):
+            os.makedirs(path_fakeB)
 
-            video = cv2.VideoCapture(self.datasetpath)
-            if not video.isOpened():
-                print("Не удалось открыть видео.")
-                return
+        video = cv2.VideoCapture(self.datasetpath)
+        if not video.isOpened():
+            print("Не удалось открыть видео.")
+            return
 
-            frame_number = 0
-            while True:
-                ret, frame = video.read()
-                if not ret:
-                    break
+        total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+        step = 25  # Измените это число, если нужно обрабатывать не каждый кадр
 
+        frame_number = 0
+        for frame_number in tqdm(range(total_frames), desc="Обработка кадров"):
+            ret, frame = video.read()
+            if not ret:
+                break
+
+            if frame_number % step == 0:
                 # Обработка кадра для подготовки к модели
                 processed_frame = self.process_frame(self, frame)
 
@@ -217,5 +187,5 @@ class DCShadowNet(object) :
                 cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
                 frame_number += 1
 
-            video.release()
+        video.release()
 
