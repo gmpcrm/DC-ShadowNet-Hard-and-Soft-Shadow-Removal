@@ -28,6 +28,8 @@ class DCShadowNet(object) :
         self.lr = args.lr
         self.weight_decay = args.weight_decay
         self.ch = args.ch
+        self.step = args.step
+        self.write_files = args.write_files
 
         """ Weight """
         self.adv_weight = args.adv_weight
@@ -110,8 +112,6 @@ class DCShadowNet(object) :
 
         # Переменные для обрезки
         x_start = y_start = 0
-        crop_width = original_width
-        crop_height = original_height
 
         # Переменные для добавления бордюров
         top_border = bottom_border = left_border = right_border = 0
@@ -150,8 +150,7 @@ class DCShadowNet(object) :
         self.load()
         print(" [*] Load SUCCESS")
 
-        self.genA2B.eval()
-        self.genB2A.eval()
+        self.genA2B.eval(), self.genB2A.eval()
 
         path_fakeB = os.path.join(self.result_dir, 'output')
         if not os.path.exists(path_fakeB):
@@ -162,18 +161,23 @@ class DCShadowNet(object) :
             print("Не удалось открыть видео.")
             return
 
-        total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-        step = 25  # Измените это число, если нужно обрабатывать не каждый кадр
+        dataset_file = os.path.basename(self.datasetpath)
 
-        frame_number = 0
+        # Определение параметров для VideoWriter
+        fps = video.get(cv2.CAP_PROP_FPS)
+        frame_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out_video = cv2.VideoWriter(os.path.join(path_fakeB, dataset_file), fourcc, fps, (frame_width, frame_height))
+
+        total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
         for frame_number in tqdm(range(total_frames), desc="Обработка кадров"):
             ret, frame = video.read()
             if not ret:
                 break
 
-            if frame_number % step == 0:
-                # Обработка кадра для подготовки к модели
-                processed_frame = self.process_frame(self, frame)
+            if frame_number % self.step == 0:
+                processed_frame = self.process_frame(frame)
 
                 # Преобразование обработанного кадра в формат, подходящий для модели
                 img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
@@ -182,10 +186,10 @@ class DCShadowNet(object) :
                 fake_A2B, _, _ = self.genA2B(real_A)
 
                 # Преобразование результата обратно в формат изображения OpenCV
-                B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
-                
+                B_fake = cv2.cvtColor(np.array(fake_A2B[0].cpu().detach()), cv2.COLOR_RGB2BGR)
+
                 cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
-                frame_number += 1
+                out_video.write((B_fake * 255).astype(np.uint8))
 
         video.release()
-
+        out_video.release()

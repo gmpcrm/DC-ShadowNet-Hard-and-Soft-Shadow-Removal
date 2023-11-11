@@ -9,13 +9,15 @@ def parse_args():
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('--phase', type=str, default='test', help='[train / test]')
     parser.add_argument('--dataset', type=str, default='SRD', help='dataset_name')
-    parser.add_argument('--modelpath', type=str, default='/disk1/yeying/dataset/SRD', help='model_path')
+
+    parser.add_argument('--modelpath', type=str, default='/content/data/ISTD_params_0600000.pt', help='model_path')
     parser.add_argument('--datasetpath', type=str, default='/disk1/yeying/dataset/SRD', help='dataset_path')
     parser.add_argument('--iteration', type=int, default=1000000, help='The number of training iterations')
     parser.add_argument('--batch_size', type=int, default=1, help='The size of batch size')
     parser.add_argument('--print_freq', type=int, default=1000, help='The number of image print freq')
     parser.add_argument('--save_freq', type=int, default=100000, help='The number of model save freq')
     parser.add_argument('--decay_flag', type=str2bool, default=True, help='The decay_flag')
+    parser.add_argument('--write_files', type=str2bool, default=True, help='Write result files')
 
     parser.add_argument('--lr', type=float, default=0.0001, help='The learning rate')
     parser.add_argument('--weight_decay', type=float, default=0.0001, help='The weight decay')
@@ -32,6 +34,7 @@ def parse_args():
     parser.add_argument('--use_pecp_loss', type=str2bool, default=True, help='use shadow-robust feature loss')
     parser.add_argument('--use_smooth_loss', type=str2bool, default=True, help='use boundary smoothness loss')
 
+    parser.add_argument('--step', type=int, default=64, help='step count')
     parser.add_argument('--ch', type=int, default=64, help='base channel number per layer')
     parser.add_argument('--n_res', type=int, default=4, help='The number of resblock')
     parser.add_argument('--n_dis', type=int, default=6, help='The number of discriminator layer')
@@ -41,7 +44,7 @@ def parse_args():
     parser.add_argument('--img_w', type=int, default=640, help='The org size of image')
     parser.add_argument('--img_ch', type=int, default=3, help='The size of image channel')
 
-    parser.add_argument('--result_dir', type=str, default='results', help='Directory name to save the results')
+    parser.add_argument('--result_dir', type=str, default='/content/results', help='Directory name to save the results')
     parser.add_argument('--device', type=str, default='cuda', choices=['cpu', 'cuda'], help='Set gpu mode; [cpu, cuda]')
     parser.add_argument('--benchmark_flag', type=str2bool, default=False)
     parser.add_argument('--resume', type=str2bool, default=True)
