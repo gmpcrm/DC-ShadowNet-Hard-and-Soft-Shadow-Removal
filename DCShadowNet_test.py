@@ -107,7 +107,7 @@ class DCShadowNet(object) :
 
     def process_frame(self, frame):
         original_height, original_width = frame.shape[:2]
-        print(f'{original_width},{original_height}')
+        print(f'shape[:2]:{original_width}x{original_height}')
         original_aspect_ratio = original_width / original_height
         target_aspect_ratio = self.img_w / self.img_h
 
@@ -145,6 +145,7 @@ class DCShadowNet(object) :
             resized_frame = cv2.resize(frame, (new_width, new_height))
             final_frame = cv2.copyMakeBorder(resized_frame, top_border, bottom_border, left_border, right_border, cv2.BORDER_CONSTANT, value=[255, 255, 255])
 
+
         return final_frame
     
     def test(self):
@@ -168,6 +169,7 @@ class DCShadowNet(object) :
         fps = video.get(cv2.CAP_PROP_FPS)
         frame_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        print(f'frames {frame_width}x{frame_height}')
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out_video = cv2.VideoWriter(os.path.join(path_fakeB, dataset_file), fourcc, fps, (frame_width, frame_height))
 
