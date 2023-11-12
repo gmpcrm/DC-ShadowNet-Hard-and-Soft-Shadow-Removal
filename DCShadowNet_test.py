@@ -169,7 +169,6 @@ class DCShadowNet(object) :
         fps = video.get(cv2.CAP_PROP_FPS)
         frame_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        #print(f'frames {frame_width}x{frame_height}')
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out_video = cv2.VideoWriter(os.path.join(path_fakeB, dataset_file), fourcc, fps, (frame_width, frame_height))
 
@@ -181,12 +180,11 @@ class DCShadowNet(object) :
 
             if frame_number % self.step == 0:
                 processed_frame = self.process_frame(frame)
-                processed_frame = frame
                 
                 # Преобразование обработанного кадра в формат, подходящий для модели
                 img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
 
-                real_A = self.test_transform(img).unsqueeze(0).to(self.device)                
+                real_A = self.test_transform(frame).unsqueeze(0).to(self.device)                
                 fake_A2B, _, _ = self.genA2B(real_A)
                 B_fake = cv2.cvtColor(np.array(fake_A2B[0].cpu().detach()), cv2.COLOR_RGB2BGR)
                 cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
