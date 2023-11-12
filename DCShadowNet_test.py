@@ -181,10 +181,11 @@ class DCShadowNet(object) :
 
             if frame_number % self.step == 0:
                 processed_frame = self.process_frame(frame)
-                processed_frame = frame
 
                 # Преобразование обработанного кадра в формат, подходящий для модели
                 img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
+
+                img = frame
                 cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), img)
                 
                 if False:
