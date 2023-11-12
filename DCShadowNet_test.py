@@ -188,7 +188,7 @@ class DCShadowNet(object) :
                 real_A = self.test_transform(img).unsqueeze(0).to(self.device)                
                 fake_A2B, _, _ = self.genA2B(real_A)
                 B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
-                cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
+                #cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
                 out_video.write((B_fake * 255).astype(np.uint8))
 
         video.release()
