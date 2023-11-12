@@ -171,7 +171,7 @@ class DCShadowNet(object) :
         frame_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out_video = cv2.VideoWriter(os.path.join(path_fakeB, dataset_file), fourcc, fps, (frame_width, frame_height))
+        out_video = cv2.VideoWriter(os.path.join(path_fakeB, dataset_file), fourcc, fps, (self.img_w, self.img_h))
 
         total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
         for frame_number in tqdm(range(total_frames), desc="Обработка кадров"):
