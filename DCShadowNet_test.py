@@ -152,7 +152,8 @@ class DCShadowNet(object) :
         self.load()
         print(" [*] Load SUCCESS")
 
-        self.genA2B.eval(), self.genB2A.eval()
+        self.genA2B.eval()
+        self.genB2A.eval()
 
         path_fakeB = os.path.join(self.result_dir, 'output')
         if not os.path.exists(path_fakeB):
@@ -184,9 +185,9 @@ class DCShadowNet(object) :
                 # Преобразование обработанного кадра в формат, подходящий для модели
                 img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
 
-                real_A = self.test_transform(frame).unsqueeze(0).to(self.device)                
+                real_A = self.test_transform(img).unsqueeze(0).to(self.device)                
                 fake_A2B, _, _ = self.genA2B(real_A)
-                B_fake = cv2.cvtColor(np.array(fake_A2B[0].cpu().detach()), cv2.COLOR_RGB2BGR)
+                B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
                 cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
                 out_video.write((B_fake * 255).astype(np.uint8))
 
