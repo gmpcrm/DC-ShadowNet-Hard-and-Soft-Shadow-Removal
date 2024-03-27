@@ -19,15 +19,8 @@ Unsupervised Domain-Classifier Guided Network](https://arxiv.org/abs/2207.10434)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/dc-shadownet-single-image-hard-and-soft-1/shadow-removal-on-istd)](https://paperswithcode.com/sota/shadow-removal-on-istd?p=dc-shadownet-single-image-hard-and-soft-1)
 
 ### Abstract
-Shadow removal from a single image is generally still an open problem.
-Most existing learning-based methods use supervised learning and require a large number of paired images (shadow and corresponding non-shadow images) for training.
-A recent unsupervised method, Mask-ShadowGAN, addresses this limitation. 
-However, it requires a binary mask to represent shadow regions, making it inapplicable to soft shadows. 
-To address the problem, in this paper, we propose an unsupervised domain-classifier guided shadow removal network, DC-ShadowNet. 
-Specifically, we propose to integrate a shadow/shadow-free domain classifier into a generator and its discriminator, enabling them to focus on shadow regions.
-To train our network, we introduce novel losses based on physics-based shadow-free chromaticity, shadow-robust perceptual features, and boundary smoothness. 
-Moreover, we show that our unsupervised network can be used for test-time training that further improves the results. 
-Our experiments show that all these novel components allow our method to handle soft shadows, and also to perform better on hard shadows both quantitatively and qualitatively than the existing state-of-the-art shadow removal methods.
+Shadow removal from a single image is generally still an open problem. Most existing learning-based methods use supervised learning and require a large number of paired images (shadow and corresponding non-shadow images) for training.
+A recent unsupervised method, Mask-ShadowGAN, addresses this limitation. However, it requires a binary mask to represent shadow regions, making it inapplicable to soft shadows. To address the problem, in this paper, we propose an unsupervised domain-classifier guided shadow removal network, DC-ShadowNet. Specifically, we propose to integrate a shadow/shadow-free domain classifier into a generator and its discriminator, enabling them to focus on shadow regions. To train our network, we introduce novel losses based on physics-based shadow-free chromaticity, shadow-robust perceptual features, and boundary smoothness. Moreover, we show that our unsupervised network can be used for test-time training that further improves the results. Our experiments show that all these novel components allow our method to handle soft shadows, and also to perform better on hard shadows both quantitatively and qualitatively than the existing state-of-the-art shadow removal methods.
 
 ## Prerequisites
 conda env create -f shadow_env.yml
@@ -194,6 +187,13 @@ Results in: `./results_VGGfeatures/shadow_VGGfeatures/layernumber/imagenumber/vi
 ## Acknowledgments
 Code is implemented based [U-GAT-IT](https://github.com/znxlwm/UGATIT-pytorch), we would like to thank them.
 <br> One trick used in `networks.py` is to change `out = self.UpBlock2(x)` to [out = (self.UpBlock2(x)+input).tanh()](https://github.com/jinyeying/DC-ShadowNet-Hard-and-Soft-Shadow-Removal/blob/35aaf00625f039f9f331d261355945c5eb1a8806/networks.py#L103) to learn a residual.
+
+## License
+The code and models in this repository are licensed under the MIT License for academic and other non-commercial uses.<br>
+For commercial use of the code and models, separate commercial licensing is available. Please contact:
+- Yeying Jin (jinyeying@u.nus.edu)
+- Robby T. Tan (tanrobby@gmail.com)
+- Jonathan Tan (jonathan_tano@nus.edu.sg)
 
 ### Citation
 If this work is useful for your research, please cite our paper. 
