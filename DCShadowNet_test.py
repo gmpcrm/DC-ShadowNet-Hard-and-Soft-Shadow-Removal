@@ -9,9 +9,10 @@ import cv2
 from tqdm import tqdm
 from PIL import Image
 
-class DCShadowNet(object) :
-    def __init__(self, args):        
-        self.model_name = 'DCShadowNet'
+
+class DCShadowNet(object):
+    def __init__(self, args):
+        self.model_name = "DCShadowNet"
 
         self.modelpath = args.modelpath
         self.result_dir = args.result_dir
@@ -40,8 +41,8 @@ class DCShadowNet(object) :
         self.use_crop = args.use_crop
         self.use_ch_loss = args.use_ch_loss
         self.use_pecp_loss = args.use_pecp_loss
-        self.use_smooth_loss = args.use_smooth_loss 
-        
+        self.use_smooth_loss = args.use_smooth_loss
+
         if args.use_ch_loss == True:
             self.ch_weight = args.ch_weight
         if args.use_pecp_loss == True:
@@ -67,7 +68,7 @@ class DCShadowNet(object) :
         self.im_suf_A = args.im_suf_A
 
         if torch.backends.cudnn.enabled and self.benchmark_flag:
-            print('set benchmark !')
+            print("set benchmark !")
             torch.backends.cudnn.benchmark = True
 
         print()
@@ -81,16 +82,32 @@ class DCShadowNet(object) :
     ##################################################################################
 
     def build_model(self):
-        """ DataLoader """
-        self.test_transform = transforms.Compose([
-            transforms.Resize((self.img_size, self.img_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
-        ])
-      
+        """DataLoader"""
+        self.test_transform = transforms.Compose(
+            [
+                transforms.Resize((self.img_size, self.img_size)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
+            ]
+        )
+
         """ Define Generator, Discriminator """
-        self.genA2B = ResnetGenerator(input_nc=3, output_nc=3, ngf=self.ch, n_blocks=self.n_res, img_size=self.img_size, light=True).to(self.device)
-        self.genB2A = ResnetGenerator(input_nc=3, output_nc=3, ngf=self.ch, n_blocks=self.n_res, img_size=self.img_size, light=True).to(self.device)
+        self.genA2B = ResnetGenerator(
+            input_nc=3,
+            output_nc=3,
+            ngf=self.ch,
+            n_blocks=self.n_res,
+            img_size=self.img_size,
+            light=True,
+        ).to(self.device)
+        self.genB2A = ResnetGenerator(
+            input_nc=3,
+            output_nc=3,
+            ngf=self.ch,
+            n_blocks=self.n_res,
+            img_size=self.img_size,
+            light=True,
+        ).to(self.device)
         self.disGA = Discriminator(input_nc=3, ndf=self.ch, n_layers=7).to(self.device)
         self.disGB = Discriminator(input_nc=3, ndf=self.ch, n_layers=7).to(self.device)
         self.disLA = Discriminator(input_nc=3, ndf=self.ch, n_layers=5).to(self.device)
@@ -98,16 +115,16 @@ class DCShadowNet(object) :
 
     def load(self):
         params = torch.load(self.modelpath)
-        self.genA2B.load_state_dict(params['genA2B'])
-        self.genB2A.load_state_dict(params['genB2A'])
-        self.disGA.load_state_dict(params['disGA'])
-        self.disGB.load_state_dict(params['disGB'])
-        self.disLA.load_state_dict(params['disLA'])
-        self.disLB.load_state_dict(params['disLB'])
+        self.genA2B.load_state_dict(params["genA2B"])
+        self.genB2A.load_state_dict(params["genB2A"])
+        self.disGA.load_state_dict(params["disGA"])
+        self.disGB.load_state_dict(params["disGB"])
+        self.disLA.load_state_dict(params["disLA"])
+        self.disLB.load_state_dict(params["disLB"])
 
     def process_frame(self, frame):
         original_height, original_width = frame.shape[:2]
-        #print(f'shape[:2]:{original_width}x{original_height}')
+        # print(f'shape[:2]:{original_width}x{original_height}')
         original_aspect_ratio = original_width / original_height
         target_aspect_ratio = self.img_w / self.img_h
 
@@ -139,15 +156,69 @@ class DCShadowNet(object) :
                 left_border = right_border = (self.img_w - new_width) // 2
 
         if self.use_crop:
-            cropped_frame = frame[y_start:y_start + new_height, x_start:x_start + new_width]
+            cropped_frame = frame[
+                y_start : y_start + new_height, x_start : x_start + new_width
+            ]
             final_frame = cv2.resize(cropped_frame, (self.img_w, self.img_h))
         else:
             resized_frame = cv2.resize(frame, (new_width, new_height))
-            final_frame = cv2.copyMakeBorder(resized_frame, top_border, bottom_border, left_border, right_border, cv2.BORDER_CONSTANT, value=[255, 255, 255])
-
+            final_frame = cv2.copyMakeBorder(
+                resized_frame,
+                top_border,
+                bottom_border,
+                left_border,
+                right_border,
+                cv2.BORDER_CONSTANT,
+                value=[255, 255, 255],
+            )
 
         return final_frame
-    
+
+    def process_files(self):
+        self.load()
+        self.genA2B.eval()
+        self.genB2A.eval()
+
+        path_fakeB = self.result_dir
+        if not os.path.exists(path_fakeB):
+            os.makedirs(path_fakeB)
+
+        dataset_files = glob(os.path.join(self.datasetpath, f"*{self.im_suf_A}"))
+        os.path.basename(self.datasetpath)
+
+        # Определение параметров для VideoWriter
+        fps = video.get(cv2.CAP_PROP_FPS)
+        frame_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        out_video = cv2.VideoWriter(
+            os.path.join(path_fakeB, dataset_file),
+            fourcc,
+            fps,
+            (self.img_w, self.img_h),
+        )
+
+        total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+        for frame_number in tqdm(range(total_frames), desc="Обработка кадров"):
+            ret, frame = video.read()
+            if not ret:
+                break
+
+            if frame_number % self.step == 0:
+                processed_frame = self.process_frame(frame)
+
+                # Преобразование обработанного кадра в формат, подходящий для модели
+                img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
+
+                real_A = self.test_transform(img).unsqueeze(0).to(self.device)
+                fake_A2B, _, _ = self.genA2B(real_A)
+                B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
+                # cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
+                out_video.write((B_fake * 255).astype(np.uint8))
+
+        video.release()
+        out_video.release()
+
     def test(self):
         self.load()
         print(" [*] Load SUCCESS")
@@ -155,7 +226,7 @@ class DCShadowNet(object) :
         self.genA2B.eval()
         self.genB2A.eval()
 
-        path_fakeB = os.path.join(self.result_dir, 'output')
+        path_fakeB = os.path.join(self.result_dir, "output")
         if not os.path.exists(path_fakeB):
             os.makedirs(path_fakeB)
 
@@ -170,8 +241,13 @@ class DCShadowNet(object) :
         fps = video.get(cv2.CAP_PROP_FPS)
         frame_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out_video = cv2.VideoWriter(os.path.join(path_fakeB, dataset_file), fourcc, fps, (self.img_w, self.img_h))
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        out_video = cv2.VideoWriter(
+            os.path.join(path_fakeB, dataset_file),
+            fourcc,
+            fps,
+            (self.img_w, self.img_h),
+        )
 
         total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
         for frame_number in tqdm(range(total_frames), desc="Обработка кадров"):
@@ -181,14 +257,14 @@ class DCShadowNet(object) :
 
             if frame_number % self.step == 0:
                 processed_frame = self.process_frame(frame)
-                
+
                 # Преобразование обработанного кадра в формат, подходящий для модели
                 img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
 
-                real_A = self.test_transform(img).unsqueeze(0).to(self.device)                
+                real_A = self.test_transform(img).unsqueeze(0).to(self.device)
                 fake_A2B, _, _ = self.genA2B(real_A)
                 B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
-                #cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
+                # cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
                 out_video.write((B_fake * 255).astype(np.uint8))
 
         video.release()
