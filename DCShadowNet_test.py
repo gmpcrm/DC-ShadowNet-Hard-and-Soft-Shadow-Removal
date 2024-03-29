@@ -1,19 +1,36 @@
-import time, itertools
-from dataset import ImageFolder
-from torchvision import transforms
-from torch.utils.data import DataLoader
-from networks import *
-from utils_loss import *
+import itertools
+import os
+import time
 from glob import glob
+
 import cv2
-from tqdm import tqdm
+import numpy as np
+from dataset import ImageFolder
+from networks import *
 from PIL import Image
+from torch.utils.data import DataLoader
+from torchvision import transforms
+from tqdm import tqdm
+from utils_loss import *
 
 
 class DCShadowNet(object):
     def __init__(self, args):
         self.model_name = "DCShadowNet"
 
+        self.init_args(args)
+
+        if torch.backends.cudnn.enabled and self.benchmark_flag:
+            print("set benchmark !")
+            torch.backends.cudnn.benchmark = True
+
+        print()
+
+        # print("##### Information #####")
+        # print("# dataset : ", self.dataset)
+        # print("# datasetpath : ", self.datasetpath)
+
+    def init_args(self, args):
         self.modelpath = args.modelpath
         self.result_dir = args.result_dir
         self.dataset = args.dataset
@@ -67,16 +84,6 @@ class DCShadowNet(object):
         self.use_original_name = args.use_original_name
         self.im_suf_A = args.im_suf_A
 
-        if torch.backends.cudnn.enabled and self.benchmark_flag:
-            print("set benchmark !")
-            torch.backends.cudnn.benchmark = True
-
-        print()
-
-        print("##### Information #####")
-        print("# dataset : ", self.dataset)
-        print("# datasetpath : ", self.datasetpath)
-
     ##################################################################################
     # Model
     ##################################################################################
@@ -122,7 +129,7 @@ class DCShadowNet(object):
         self.disLA.load_state_dict(params["disLA"])
         self.disLB.load_state_dict(params["disLB"])
 
-    def process_frame(self, frame):
+    def transform_frame(self, frame):
         original_height, original_width = frame.shape[:2]
         # print(f'shape[:2]:{original_width}x{original_height}')
         original_aspect_ratio = original_width / original_height
@@ -174,50 +181,58 @@ class DCShadowNet(object):
 
         return final_frame
 
-    def process_files(self):
-        self.load()
-        self.genA2B.eval()
-        self.genB2A.eval()
+    def insert_pad(self, frame, color=[255, 255, 255]):
+        size = max(frame.shape[:2])
+        padded_img = np.full((size, size, 3), color, dtype=np.uint8)
 
-        path_fakeB = self.result_dir
-        if not os.path.exists(path_fakeB):
-            os.makedirs(path_fakeB)
+        x_offset = (size - frame.shape[1]) // 2
+        y_offset = (size - frame.shape[0]) // 2
 
-        dataset_files = glob(os.path.join(self.datasetpath, f"*{self.im_suf_A}"))
-        os.path.basename(self.datasetpath)
+        padded_img[
+            y_offset : y_offset + frame.shape[0],
+            x_offset : x_offset + frame.shape[1],
+        ] = frame
 
-        # Определение параметров для VideoWriter
-        fps = video.get(cv2.CAP_PROP_FPS)
-        frame_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        out_video = cv2.VideoWriter(
-            os.path.join(path_fakeB, dataset_file),
-            fourcc,
-            fps,
-            (self.img_w, self.img_h),
-        )
+        return padded_img
 
-        total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-        for frame_number in tqdm(range(total_frames), desc="Обработка кадров"):
-            ret, frame = video.read()
-            if not ret:
-                break
+    def remove_pad(self, frame, width, height):
+        y_offset = (frame.shape[0] - height) // 2
+        x_offset = (frame.shape[1] - width) // 2
+        cropped_img = frame[y_offset : y_offset + height, x_offset : x_offset + width]
 
-            if frame_number % self.step == 0:
-                processed_frame = self.process_frame(frame)
+        return cropped_img
 
-                # Преобразование обработанного кадра в формат, подходящий для модели
-                img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
+    def test_files(self, scale=0.25):
+        target_path = self.result_dir
+        if not os.path.exists(target_path):
+            os.makedirs(target_path)
 
-                real_A = self.test_transform(img).unsqueeze(0).to(self.device)
-                fake_A2B, _, _ = self.genA2B(real_A)
-                B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
-                # cv2.imwrite(os.path.join(path_fakeB, f'frame_{frame_number:06}.png'), B_fake * 255.0)
-                out_video.write((B_fake * 255).astype(np.uint8))
+        # Получение списка PNG файлов в директории
+        png_files = [f for f in os.listdir(self.datasetpath) if f.endswith(".png")]
+        png_files.sort()
 
-        video.release()
-        out_video.release()
+        for file_name in tqdm(png_files, desc="Обработка изображений"):
+            frame = cv2.imread(os.path.join(self.datasetpath, file_name))
+            frame = self.process_frame(frame, scale)
+
+            cv2.imwrite(
+                os.path.join(target_path, f"{file_name}{self.im_suf_A}"),
+                frame,
+            )
+
+    def process_frame(self, frame, width, height):
+        frame = cv2.resize(frame, (width, height))
+        frame = self.insert_pad(frame)
+
+        img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+        real_A = self.test_transform(img).unsqueeze(0).to(self.device)
+        fake_A2B, _, _ = self.genA2B(real_A)
+        B_fake = RGB2BGR(tensor2numpy(denorm(fake_A2B[0])))
+
+        frame = (B_fake * 255).astype(np.uint8)
+        frame = self.remove_pad(frame, width, height)
+        return frame
 
     def test(self):
         self.load()
@@ -256,7 +271,7 @@ class DCShadowNet(object):
                 break
 
             if frame_number % self.step == 0:
-                processed_frame = self.process_frame(frame)
+                processed_frame = self.transform_frame(frame)
 
                 # Преобразование обработанного кадра в формат, подходящий для модели
                 img = Image.fromarray(cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB))
